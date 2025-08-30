@@ -50,7 +50,14 @@ chmod +x ~/generate_status.sh
 # 6️⃣ Dodanie crona do aktualizacji statusu co minutę
 (crontab -l 2>/dev/null; echo "* * * * * $HOME/generate_status.sh") | crontab -
 
-# 7️⃣ Tworzenie usługi systemd dla dashboarda
+# 7️⃣ Pobranie skryptu odinstalowującego dashboard
+if [ ! -f ~/uninstall-dashboard.sh ]; then
+    wget -O ~/uninstall-dashboard.sh "https://raw.githubusercontent.com/hattimon/rpi-docker-dashboard/main/uninstall-dashboard.sh"
+    chmod +x ~/uninstall-dashboard.sh
+    echo "✔ Skrypt uninstall-dashboard.sh gotowy do użycia"
+fi
+
+# 8️⃣ Tworzenie usługi systemd dla dashboarda
 SERVICE_FILE="/etc/systemd/system/rpi-dashboard.service"
 sudo bash -c "cat > $SERVICE_FILE" <<EOF
 [Unit]
@@ -67,11 +74,11 @@ User=$USER
 WantedBy=multi-user.target
 EOF
 
-# 8️⃣ Włączenie i start serwisu
+# 9️⃣ Włączenie i start serwisu
 sudo systemctl daemon-reload
 sudo systemctl enable rpi-dashboard
 sudo systemctl restart rpi-dashboard
 
 echo "✅ Instalacja zakończona."
 echo "📊 Panel dostępny pod adresem: http://$(hostname -I | awk '{print $1}'):8080/"
-
+echo "🗑️ Jeśli chcesz odinstalować panel, uruchom: ~/uninstall-dashboard.sh"
