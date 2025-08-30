@@ -1,30 +1,31 @@
 #!/bin/bash
-# Instalacja RPi Docker Dashboard
+# Instalacja RPi Docker Dashboard w katalogu /root/panel
 
 set -e
 
-echo "🚀 Instalacja RPi Docker Dashboard"
+echo "🚀 Instalacja RPi Docker Dashboard w /root/panel"
 
 # 1️⃣ Aktualizacja systemu
 sudo apt update && sudo apt upgrade -y
 
 # 2️⃣ Instalacja potrzebnych pakietów
-sudo apt install -y jq wget unzip
+sudo apt install -y jq wget unzip python3
 
-# 3️⃣ Utworzenie katalogu panel
-mkdir -p ~/panel
+# 3️⃣ Utworzenie katalogu panel w /root
+INSTALL_DIR="/root/panel"
+mkdir -p "$INSTALL_DIR"
 
 # 4️⃣ Pobranie panelu z repo (lub ZIP lokalnie)
-if [ ! -f ~/panel/index.html ]; then
+if [ ! -f "$INSTALL_DIR/index.html" ]; then
     echo "Pobieranie plików panelu..."
-    wget -O ~/panel/panel.zip "https://github.com/hattimon/rpi-docker-dashboard/raw/main/panel.zip"
-    unzip -o ~/panel/panel.zip -d ~/panel
+    wget -O "$INSTALL_DIR/panel.zip" "https://github.com/hattimon/rpi-docker-dashboard/raw/main/panel.zip"
+    unzip -o "$INSTALL_DIR/panel.zip" -d "$INSTALL_DIR"
 fi
 
 # 5️⃣ Tworzenie skryptu generującego status
-cat <<'EOF' > ~/generate_status.sh
+cat <<'EOF' > /root/generate_status.sh
 #!/bin/bash
-STATUS_FILE="$HOME/panel/status.json"
+STATUS_FILE="/root/panel/status.json"
 
 CPU=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100-$1"%"}')
 RAM=$(free | grep Mem | awk '{printf "%.1f%%", $3/$2 * 100}')
@@ -45,15 +46,15 @@ cat <<JSON > $STATUS_FILE
 JSON
 EOF
 
-chmod +x ~/generate_status.sh
+chmod +x /root/generate_status.sh
 
 # 6️⃣ Dodanie crona do aktualizacji statusu co minutę
-(crontab -l 2>/dev/null; echo "* * * * * $HOME/generate_status.sh") | crontab -
+(crontab -l 2>/dev/null; echo "* * * * * /root/generate_status.sh") | crontab -
 
 # 7️⃣ Pobranie skryptu odinstalowującego dashboard
-if [ ! -f ~/uninstall-dashboard.sh ]; then
-    wget -O ~/uninstall-dashboard.sh "https://raw.githubusercontent.com/hattimon/rpi-docker-dashboard/main/uninstall-dashboard.sh"
-    chmod +x ~/uninstall-dashboard.sh
+if [ ! -f /root/uninstall-dashboard.sh ]; then
+    wget -O /root/uninstall-dashboard.sh "https://raw.githubusercontent.com/hattimon/rpi-docker-dashboard/main/uninstall-dashboard.sh"
+    chmod +x /root/uninstall-dashboard.sh
     echo "✔ Skrypt uninstall-dashboard.sh gotowy do użycia"
 fi
 
@@ -65,10 +66,10 @@ Description=RPi Docker Dashboard
 After=network.target
 
 [Service]
-WorkingDirectory=$HOME/panel
+WorkingDirectory=/root/panel
 ExecStart=/usr/bin/python3 -m http.server 8080
 Restart=always
-User=$USER
+User=root
 
 [Install]
 WantedBy=multi-user.target
@@ -81,4 +82,4 @@ sudo systemctl restart rpi-dashboard
 
 echo "✅ Instalacja zakończona."
 echo "📊 Panel dostępny pod adresem: http://$(hostname -I | awk '{print $1}'):8080/"
-echo "🗑️ Jeśli chcesz odinstalować panel, uruchom: ~/uninstall-dashboard.sh"
+echo "🗑️ Jeśli chcesz odinstalować panel, uruchom: /root/uninstall-dashboard.sh"
