@@ -9,7 +9,7 @@ echo "🚀 Instalacja RPi Docker Dashboard"
 sudo apt update && sudo apt upgrade -y
 
 # 2️⃣ Instalacja potrzebnych pakietów
-#sudo apt install -y docker.io jq wget unzip
+sudo apt install -y jq wget unzip
 
 # 3️⃣ Utworzenie katalogu panel
 mkdir -p ~/panel
