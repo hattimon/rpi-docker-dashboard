@@ -50,4 +50,28 @@ chmod +x ~/generate_status.sh
 # 6️⃣ Dodanie crona do aktualizacji statusu co minutę
 (crontab -l 2>/dev/null; echo "* * * * * $HOME/generate_status.sh") | crontab -
 
-echo "✅ Instalacja zakończona. Panel dostępny w ~/panel/index.html"
+# 7️⃣ Tworzenie usługi systemd dla dashboarda
+SERVICE_FILE="/etc/systemd/system/rpi-dashboard.service"
+sudo bash -c "cat > $SERVICE_FILE" <<EOF
+[Unit]
+Description=RPi Docker Dashboard
+After=network.target
+
+[Service]
+WorkingDirectory=$HOME/panel
+ExecStart=/usr/bin/python3 -m http.server 8080
+Restart=always
+User=$USER
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# 8️⃣ Włączenie i start serwisu
+sudo systemctl daemon-reload
+sudo systemctl enable rpi-dashboard
+sudo systemctl restart rpi-dashboard
+
+echo "✅ Instalacja zakończona."
+echo "📊 Panel dostępny pod adresem: http://$(hostname -I | awk '{print $1}'):8080/"
+
