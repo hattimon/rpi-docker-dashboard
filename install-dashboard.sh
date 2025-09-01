@@ -8,12 +8,20 @@ echo "🚀 Instalacja RPi Docker Dashboard w /root/panel"
 # 1️⃣ Aktualizacja systemu
 sudo apt update && sudo apt upgrade -y
 
-# 2️⃣ Instalacja potrzebnych pakietów, w tym cron, libraspberrypi-bin i docker jeśli brak
-sudo apt install -y jq wget unzip python3 cron libraspberrypi-bin docker.io
+# 2️⃣ Instalacja potrzebnych pakietów, w tym cron i libraspberrypi-bin jeśli brak
+sudo apt install -y jq wget unzip python3 cron libraspberrypi-bin
 
-# Upewnij się, że cron jest włączony i działa
-sudo systemctl enable cron
-sudo systemctl start cron
+# Sprawdzenie, czy Docker jest zainstalowany; jeśli nie, instaluj docker.io
+if ! command -v docker &> /dev/null; then
+    echo "Docker nie jest zainstalowany, instalowanie docker.io..."
+    sudo apt install -y docker.io
+else
+    echo "✔ Docker już zainstalowany, pomijanie instalacji."
+fi
+
+# Upewnij się, że usługa Docker jest włączona i działa
+sudo systemctl enable docker
+sudo systemctl start docker
 
 # Dodaj użytkownika root do grupy docker, jeśli nie jest
 sudo usermod -aG docker root
@@ -67,6 +75,12 @@ fi
 # Uruchom skrypt generujący status natychmiast po instalacji
 /root/generate_status.sh
 
+# Ustaw uprawnienia dla status.json
+if [ -f "/root/panel/status.json" ]; then
+    sudo chown root:root /root/panel/status.json
+    sudo chmod 644 /root/panel/status.json
+fi
+
 # 7️⃣ Pobranie skryptu odinstalowującego dashboard
 if [ ! -f /root/uninstall-dashboard.sh ]; then
     wget -O /root/uninstall-dashboard.sh "https://raw.githubusercontent.com/hattimon/rpi-docker-dashboard/main/uninstall-dashboard.sh"
@@ -95,6 +109,12 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable rpi-dashboard
 sudo systemctl restart rpi-dashboard
+
+# 10️⃣ Otwarcie portu 8080 w zaporze (jeśli ufw jest aktywny)
+if command -v ufw &> /dev/null; then
+    sudo ufw allow 8080
+    echo "✔ Port 8080 otwarty w zaporze ufw"
+fi
 
 echo "✅ Instalacja zakończona."
 echo "📊 Panel dostępny pod adresem: http://$(hostname -I | awk '{print $1}'):8080/"
