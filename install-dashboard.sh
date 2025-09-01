@@ -8,8 +8,15 @@ echo "🚀 Instalacja RPi Docker Dashboard w /root/panel"
 # 1️⃣ Aktualizacja systemu
 sudo apt update && sudo apt upgrade -y
 
-# 2️⃣ Instalacja potrzebnych pakietów
-sudo apt install -y jq wget unzip python3
+# 2️⃣ Instalacja potrzebnych pakietów, w tym cron, libraspberrypi-bin i docker jeśli brak
+sudo apt install -y jq wget unzip python3 cron libraspberrypi-bin docker.io
+
+# Upewnij się, że cron jest włączony i działa
+sudo systemctl enable cron
+sudo systemctl start cron
+
+# Dodaj użytkownika root do grupy docker, jeśli nie jest
+sudo usermod -aG docker root
 
 # 3️⃣ Utworzenie katalogu panel w /root
 INSTALL_DIR="/root/panel"
@@ -22,14 +29,14 @@ if [ ! -f "$INSTALL_DIR/index.html" ]; then
     unzip -o "$INSTALL_DIR/panel.zip" -d "$INSTALL_DIR"
 fi
 
-# 5️⃣ Tworzenie skryptu generującego status
+# 5️⃣ Tworzenie skryptu generującego status (z dostosowaniem TEMP dla Ubuntu)
 cat <<'EOF' > /root/generate_status.sh
 #!/bin/bash
 STATUS_FILE="/root/panel/status.json"
 
 CPU=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100-$1"%"}')
 RAM=$(free | grep Mem | awk '{printf "%.1f%%", $3/$2 * 100}')
-TEMP=$(vcgencmd measure_temp 2>/dev/null | cut -d "=" -f2)
+TEMP=$(vcgencmd measure_temp 2>/dev/null | cut -d "=" -f2 || cat /sys/class/thermal/thermal_zone0/temp | awk '{print $1/1000 "°C"}')
 DISK=$(df -h / | tail -1 | awk '{print $5}')
 ETH_IP=$(ip addr show eth0 | grep "inet " | awk '{print $2}' | cut -d/ -f1)
 WIFI_IP=$(ip addr show wlan0 | grep "inet " | awk '{print $2}' | cut -d/ -f1)
@@ -48,8 +55,17 @@ EOF
 
 chmod +x /root/generate_status.sh
 
-# 6️⃣ Dodanie crona do aktualizacji statusu co minutę
-(crontab -l 2>/dev/null; echo "* * * * * /root/generate_status.sh") | crontab -
+# 6️⃣ Dodanie crona do aktualizacji statusu co minutę (sprawdź, czy wpis już istnieje, aby uniknąć duplikatów)
+CRON_JOB="* * * * * /root/generate_status.sh"
+if ! crontab -l | grep -q "/root/generate_status.sh"; then
+    (crontab -l 2>/dev/null; echo "$CRON_JOB") | crontab -
+    echo "✔ Dodano zadanie cron: $CRON_JOB"
+else
+    echo "✔ Zadanie cron już istnieje."
+fi
+
+# Uruchom skrypt generujący status natychmiast po instalacji
+/root/generate_status.sh
 
 # 7️⃣ Pobranie skryptu odinstalowującego dashboard
 if [ ! -f /root/uninstall-dashboard.sh ]; then
